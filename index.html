@@ -33,6 +33,10 @@
   }
   #cats, #fav{display:flex; gap:10px; overflow-x:auto; padding:14px 16px 6px; scrollbar-width:none;}
   #cats{padding-top:10px;}
+  #subgroups{display:flex;gap:8px;overflow-x:auto;padding:8px 16px 4px;scrollbar-width:none;}
+  #subgroups:empty{display:none;}
+  .subgroup{flex:0 0 auto;border:1px solid #475569;background:var(--card2);color:var(--text);padding:7px 13px;border-radius:999px;font-weight:700;white-space:nowrap;}
+  .subgroup.active{background:#3b2f14;border-color:var(--accent);color:#fcd34d;}
   #cats::-webkit-scrollbar, #fav::-webkit-scrollbar{display:none;}
   .cat{
     flex:0 0 auto; padding:10px 18px; border-radius:999px; background:var(--card);
@@ -155,6 +159,7 @@
 </header>
 
 <div id="cats"></div>
+<div id="subgroups"></div>
 <div id="products"></div>
 <input id="note" type="text" placeholder="📝 ملاحظة إضافية (اختياري)">
 
@@ -237,6 +242,7 @@
           <input id="newProdUnit" type="text" placeholder="الوحدة (كغ/علبة...)" style="max-width:150px;">
           <button class="btn green" id="addProdBtn">➕ إضافة</button>
         </div>
+        <input id="newProdGroup" type="text" placeholder="المجموعة داخل الفئة (مثال: أجبان، لحوم، خضروات) — اختياري" style="width:100%;margin-top:8px">
         <input id="newProdImage" type="file" accept="image/*" style="width:100%;margin-top:8px;color:var(--muted)">
         <div class="hint">يمكن اختيار صورة للمنتج؛ سيتم حفظها على هذا الجهاز.</div>
       </div>
@@ -373,6 +379,7 @@ let DB = loadData();
 let CATEGORIES = DB.cats, PRODUCTS = DB.prods, settings = DB.settings;
 let selectedCat = CATEGORIES[0] ? CATEGORIES[0].id : null;
 const cart = {};
+let selectedSubgroup = "الكل";
 let freq = JSON.parse(localStorage.getItem("freq") || "{}");
 let workerOrders = JSON.parse(localStorage.getItem("workerCategoryOrders") || "{}");
 
@@ -399,12 +406,24 @@ function renderCats(){
     b.className = "cat" + (c.id===selectedCat ? " active":"");
     if(c.image){ b.innerHTML = `<img class="cat-photo" src="${c.image}" alt="">` + c.name; }
     else b.textContent = (c.ico||"📦") + " " + c.name;
-    b.onclick = ()=>{ selectedCat=c.id; renderCats(); renderProds(); renderManage(); };
+    b.onclick = ()=>{ selectedCat=c.id; selectedSubgroup="الكل"; renderCats(); renderSubgroups(); renderProds(); renderManage(); };
     catsEl.appendChild(b);
   });
   if(!CATEGORIES.length){
     catsEl.innerHTML = '<div style="color:var(--muted);padding:8px;">لا توجد فئات — أضفها من الإعدادات ⚙️</div>';
   }
+}
+
+function renderSubgroups(){
+  const el=document.getElementById("subgroups"); el.innerHTML="";
+  const names=[...new Set(PRODUCTS.filter(p=>p.cat===selectedCat && (p.group||"").trim()).map(p=>p.group.trim()))];
+  if(!names.length){selectedSubgroup="الكل";return;}
+  if(selectedSubgroup!=="الكل" && !names.includes(selectedSubgroup)) selectedSubgroup="الكل";
+  ["الكل",...names].forEach(name=>{
+    const b=document.createElement("button"); b.className="subgroup"+(selectedSubgroup===name?" active":""); b.textContent=name;
+    b.onclick=()=>{selectedSubgroup=name;renderSubgroups();renderProds(document.getElementById("search").value.trim());};
+    el.appendChild(b);
+  });
 }
 
 function renderProds(filter=""){
@@ -413,8 +432,9 @@ function renderProds(filter=""){
     if(CATEGORIES.length) selectedCat = CATEGORIES[0].id;
     else { prodEl.innerHTML = '<div class="empty">لا توجد فئات 🔐<br>أضفها من الإعدادات بعد إدخال الرمز السري</div>'; return; }
   }
-  const list = PRODUCTS.filter(p => p.cat===selectedCat && p.name.includes(filter));
-  if(!list.length){ prodEl.innerHTML = '<div class="empty">لا توجد منتجات 🔍</div>'; return; }
+  renderSubgroups();
+  const list = PRODUCTS.filter(p => p.cat===selectedCat && p.name.toLowerCase().includes(filter.toLowerCase()) && (selectedSubgroup==="الكل" || (p.group||"").trim()===selectedSubgroup));
+  if(!list.length){ prodEl.innerHTML = '<div class="empty">لا توجد منتجات في هذه المجموعة 🔍</div>'; return; }
   list.forEach(p=>{
     const q = cart[p.id] || 0;
     const d = document.createElement("div");
@@ -689,10 +709,11 @@ document.getElementById("addProdBtn").onclick = async ()=>{
     name,
     ico: document.getElementById("newProdIco").value.trim() || "📦",
     unit: document.getElementById("newProdUnit").value.trim() || "وحدة",
+    group: document.getElementById("newProdGroup").value.trim(),
     image
   });
   saveProds(); renderProds(); renderManage(); renderFav();
-  document.getElementById("newProdName").value = ""; document.getElementById("newProdUnit").value = ""; document.getElementById("newProdIco").value = "";
+  document.getElementById("newProdName").value = ""; document.getElementById("newProdUnit").value = ""; document.getElementById("newProdIco").value = ""; document.getElementById("newProdGroup").value = "";
   toast("✅ تمت إضافة المنتج");
 };
 
@@ -708,7 +729,7 @@ document.getElementById("renameCatBtn").onclick = ()=>{
   const i = prompt("الأيقونة (رمز إيموجي):", c.ico || "📦");
   c.name = n.trim();
   if(i !== null && i.trim()) c.ico = i.trim();
-  saveCats(); fillCatSelects(); renderCats(); renderProds(); renderManage();
+  saveCats(); fillCatSelects(); renderCats(); renderSubgroups(); renderProds(); renderManage();
   toast("✅ تم تعديل الفئة");
 };
 
@@ -737,7 +758,7 @@ document.getElementById("delCatBtn").onclick = ()=>{
   });
   saveCats(); saveProds();
   selectedCat = CATEGORIES[0].id;
-  fillCatSelects(); renderCats(); renderProds(); renderManage(); renderFav(); update();
+  fillCatSelects(); renderCats(); renderSubgroups(); renderProds(); renderManage(); renderFav(); update();
   toast("🗑️ تم حذف الفئة");
 };
 
@@ -774,7 +795,9 @@ function renderManage(){
       if(!n.trim()){ toast("⚠️ الاسم فارغ"); return; }
       const u = prompt("الوحدة (كغ/علبة/لتر...):", p.unit || "");
       const i = prompt("الأيقونة (إيموجي):", p.ico || "📦");
+      const g = prompt("اسم المجموعة داخل الفئة (اتركه فارغاً دون مجموعة):", p.group || "");
       p.name = n.trim();
+      if(g !== null) p.group = g.trim();
       if(u !== null) p.unit = u.trim() || "وحدة";
       if(i !== null && i.trim()) p.ico = i.trim();
       saveProds(); renderProds(); renderManage(); renderFav();
@@ -829,7 +852,7 @@ document.getElementById("importFile").addEventListener("change", e=>{
       if(d.settings) settings = Object.assign({}, DEFAULT_SETTINGS, d.settings);
       saveCats(); saveProds(); saveSettings();
       selectedCat = CATEGORIES[0] ? CATEGORIES[0].id : null;
-      fillCatSelects(); renderCats(); renderProds(); renderManage(); renderFav(); update();
+      fillCatSelects(); renderCats(); renderSubgroups(); renderProds(); renderManage(); renderFav(); update();
       overlay.classList.remove("open");
       toast("✅ تم الاستيراد بنجاح");
     }catch(err){
@@ -841,7 +864,7 @@ document.getElementById("importFile").addEventListener("change", e=>{
 });
 
 /* ================== تشغيل ================== */
-renderCats(); renderProds(); renderFav(); update();
+renderCats(); renderSubgroups(); renderProds(); renderFav(); update();
 setInterval(renderFav, 5000);
 </script>
 </body>
