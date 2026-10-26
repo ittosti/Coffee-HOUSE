@@ -72,8 +72,8 @@
   #count{background:var(--accent); color:#1a1205; font-weight:800;
     padding:4px 12px; border-radius:999px; font-size:.95rem; white-space:nowrap;}
   #sendBtn{
-    flex:1; background:var(--accent2); color:#04180b; border:none; padding:14px;
-    border-radius:14px; font-size:1.05rem; font-weight:800; cursor:pointer;
+    background:var(--accent2); color:#04180b; border:none; padding:8px 16px;
+    border-radius:10px; font-size:0.92rem; font-weight:800; cursor:pointer;
   }
   #sendBtn:disabled{opacity:.4; cursor:not-allowed;}
   #clearBtn{background:none; border:none; color:var(--muted); font-size:.85rem; cursor:pointer;}
@@ -166,7 +166,7 @@
 <div id="bar">
   <span id="count">0 منتج</span>
   <button id="cartBtn" type="button" title="مراجعة السلة">🛒 <span id="cartBadge">0</span></button>
-  <button id="sendBtn" disabled>📲 إرسال الطلب عبر واتساب</button>
+  <button id="sendBtn" disabled>إرسال</button>
   <button id="clearBtn">مسح ✖</button>
 </div>
 
@@ -243,7 +243,10 @@
           <button class="btn green" id="addProdBtn">➕ إضافة</button>
         </div>
         <input id="newProdGroup" type="text" placeholder="المجموعة داخل الفئة (مثال: أجبان، لحوم، خضروات) — اختياري" style="width:100%;margin-top:8px">
-        <input id="newProdImage" type="file" accept="image/*" style="width:100%;margin-top:8px;color:var(--muted)">
+        <div style="display:flex; gap:8px; margin-top:8px; align-items:center;">
+          <input id="newProdImage" type="file" accept="image/*" style="flex:1; color:var(--muted)">
+          <button type="button" class="btn gray" id="clearProdImgBtn" style="padding:7px 12px; font-size:0.85rem;">إزالة الصورة</button>
+        </div>
         <div class="hint">يمكن اختيار صورة للمنتج؛ سيتم حفظها على هذا الجهاز.</div>
       </div>
 
@@ -480,7 +483,7 @@ function update(){
 }
 
 function updateSendLabel(){
-  document.getElementById("sendBtn").textContent = "📲 إرسال الطلب عبر واتساب";
+  document.getElementById("sendBtn").textContent = "إرسال";
 }
 
 function renderFav(){}
@@ -713,7 +716,11 @@ document.getElementById("addProdBtn").onclick = async ()=>{
     image
   });
   saveProds(); renderProds(); renderManage(); renderFav();
-  document.getElementById("newProdName").value = ""; document.getElementById("newProdUnit").value = ""; document.getElementById("newProdIco").value = ""; document.getElementById("newProdGroup").value = "";
+  document.getElementById("newProdName").value = ""; 
+  document.getElementById("newProdUnit").value = ""; 
+  document.getElementById("newProdIco").value = ""; 
+  document.getElementById("newProdGroup").value = "";
+  document.getElementById("newProdImage").value = ""; // تفريغ حقل الصورة للمنتج الموالي
   toast("✅ تمت إضافة المنتج");
 };
 
@@ -864,6 +871,12 @@ document.getElementById("importFile").addEventListener("change", e=>{
 });
 
 /* ================== تشغيل ================== */
+
+document.getElementById("clearProdImgBtn").onclick = () => {
+  document.getElementById("newProdImage").value = "";
+  toast("🗑️ تم إزالة الصورة المختارة");
+};
+
 renderCats(); renderSubgroups(); renderProds(); renderFav(); update();
 setInterval(renderFav, 5000);
 </script>
