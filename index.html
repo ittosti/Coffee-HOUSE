@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>🛒 طلبات المقهى</title>
+<title>🛒 طلبات المقهى - الإصدار الجديد</title>
+<!-- Dynamic Web Manifest for PWA installation -->
+<link rel="manifest" id="dynamicManifest">
+<meta name="theme-color" content="#0f172a">
 <style>
   :root{
     --bg:#0f172a; --card:#1e293b; --card2:#253449; --accent:#f59e0b;
@@ -168,6 +171,30 @@
     padding:14px; text-align:center; color:var(--muted); font-size:.9rem; margin-bottom:14px;
   }
 </style>
+<script>
+  // Generate a brand new unique manifest dynamically so Chrome treats it as a completely fresh application package
+  const manifestData = {
+    "name": "طلبات المقهى الاحترافية v2",
+    "short_name": "طلبات المقهى v2",
+    "start_url": "./index.html",
+    "display": "standalone",
+    "background_color": "#0f172a",
+    "theme_color": "#0f172a",
+    "icons": [
+      {
+        "src": "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>☕</text></svg>",
+        "sizes": "192x192",
+        "type": "image/svg+xml"
+      }
+    ]
+  };
+  const stringManifest = JSON.stringify(manifestData);
+  const blob = new Blob([stringManifest], {type: 'application/json'});
+  const manifestURL = URL.createObjectURL(blob);
+  document.addEventListener("DOMContentLoaded", () => {
+    document.getElementById("dynamicManifest").setAttribute("href", manifestURL);
+  });
+</script>
 </head>
 <body>
 
@@ -726,7 +753,7 @@ document.getElementById("saveCatDomainBtn").onclick = ()=>{
 
 document.getElementById("clearProdImgBtn").onclick = () => {
   document.getElementById("newProdImage").value = "";
-  toast("🗑️ تم إزالة الصورة المختارةة");
+  toast("🗑️ تم إزالة الصورة المختارة");
 };
 
 document.getElementById("addProdBtn").onclick = async ()=>{
