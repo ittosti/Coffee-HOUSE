@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>🛒 طلبات المقهى - الإصدار الجديد</title>
-<!-- Dynamic Web Manifest for PWA installation -->
-<link rel="manifest" id="dynamicManifest">
+<title>coffee HOUSE - طلبات المقهى</title>
+<link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f172a">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
   :root{
     --bg:#0f172a; --card:#1e293b; --card2:#253449; --accent:#f59e0b;
@@ -46,7 +46,7 @@
     display:flex; flex-direction:column; align-items:center; justify-content:center;
     padding:24px; text-align:center;
   }
-  #domainLanding.hidden{display:none;}
+  #domainLanding.hidden{display:none !important;}
   .landing-title{font-size:1.6rem; font-weight:800; margin-bottom:8px; color:var(--accent);}
   .landing-sub{color:var(--muted); font-size:1rem; margin-bottom:24px;}
   .domain-grid{
@@ -172,35 +172,18 @@
   }
 </style>
 <script>
-  // Generate a brand new unique manifest dynamically so Chrome treats it as a completely fresh application package
-  const manifestData = {
-    "name": "طلبات المقهى الاحترافية v2",
-    "short_name": "طلبات المقهى v2",
-    "start_url": "./index.html",
-    "display": "standalone",
-    "background_color": "#0f172a",
-    "theme_color": "#0f172a",
-    "icons": [
-      {
-        "src": "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>☕</text></svg>",
-        "sizes": "192x192",
-        "type": "image/svg+xml"
-      }
-    ]
-  };
-  const stringManifest = JSON.stringify(manifestData);
-  const blob = new Blob([stringManifest], {type: 'application/json'});
-  const manifestURL = URL.createObjectURL(blob);
-  document.addEventListener("DOMContentLoaded", () => {
-    document.getElementById("dynamicManifest").setAttribute("href", manifestURL);
-  });
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW failed: ', err));
+    });
+  }
 </script>
 </head>
 <body>
 
 <!-- شاشة اختيار المجال عند فتح التطبيق -->
 <div id="domainLanding">
-  <div class="landing-title">☕ مرحباً بك في طلبات المقهى</div>
+  <div class="landing-title">☕ coffee HOUSE</div>
   <div class="landing-sub">اختر مجال عملك للبدء:</div>
   <div class="domain-grid">
     <button class="domain-card" data-domain="كوزينة">🍳 كوزينة</button>
@@ -213,7 +196,7 @@
 
 <header>
   <div class="toprow">
-    <div class="logo">☕ <span id="appTitle">طلبات المقهى</span></div>
+    <div class="logo">☕ <span id="appTitle">coffee HOUSE</span></div>
     <div class="header-actions">
       <button class="header-btn" id="changeDomainBtn" title="تغيير المجال">🔄 المجال</button>
       <button id="settingsBtn" title="الإعدادات">⚙️</button>
@@ -293,7 +276,6 @@
           <button class="btn green" id="addCatBtn">➕ إضافة</button>
         </div>
         <input id="newCatImage" type="file" accept="image/*" style="width:100%;margin-top:8px;color:var(--muted)">
-        <div class="hint">حدد المجال لتظهر الفئة فقط عند اختيار العامل لمجاله.</div>
       </div>
 
       <!-- إضافة منتج -->
@@ -313,7 +295,6 @@
           <input id="newProdImage" type="file" accept="image/*" style="flex:1; color:var(--muted)">
           <button type="button" class="btn gray" id="clearProdImgBtn" style="padding:7px 12px; font-size:0.85rem;">إزالة الصورة</button>
         </div>
-        <div class="hint">يمكن اختيار صورة للمنتج؛ سيتم حفظها على هذا الجهاز.</div>
       </div>
 
       <!-- إدارة الفئات والمنتجات -->
@@ -460,7 +441,7 @@ function checkDomainState(){
     landingEl.classList.remove("hidden");
   } else {
     landingEl.classList.add("hidden");
-    document.getElementById("appTitle").textContent = `طلبات المقهى (${currentDomain})`;
+    document.getElementById("appTitle").textContent = `coffee HOUSE (${currentDomain})`;
     renderCats();
     renderProds();
   }
@@ -572,7 +553,7 @@ function buildMessage(){
   const worker = document.getElementById("workerName").value.trim();
   const note = document.getElementById("note").value.trim();
   const now = new Date().toLocaleString("ar-MA");
-  let msg = "🛒 *طلب جديد من المقهى*\n";
+  let msg = "🛒 *طلب جديد من coffee HOUSE*\n";
   msg += `📍 المجال: ${currentDomain}\n`;
   msg += "━━━━━━━━━━━━━━━\n";
   if(worker) msg += `👤 العامل: ${worker}\n`;
@@ -590,8 +571,7 @@ function buildMessage(){
     if(!byCat[c.id]) return;
     msg += `${c.ico||"📦"} *${c.name}:*\n`;
     byCat[c.id].forEach(({p,q})=>{
-      msg += `  • ${p.ico||"📦"} ${p.name} × ${q} (${p.unit||"وحدة"})
-`;
+      msg += `  • ${p.ico||"📦"} ${p.name} × ${q} (${p.unit||"وحدة"})\n`;
     });
     msg += "\n";
   });
@@ -868,12 +848,12 @@ function renderManage(){
 document.getElementById("exportBtn").onclick = ()=>{
   const data = {
     categories: CATEGORIES, products: PRODUCTS,
-    exportedAt: new Date().toISOString(), app: "cafe-orders"
+    exportedAt: new Date().toISOString(), app: "coffee-house"
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "cafe-orders-data.json";
+  a.download = "coffee-house-data.json";
   a.click(); URL.revokeObjectURL(a.href);
   toast("✅ تم تصدير البيانات بنجاح");
 };
