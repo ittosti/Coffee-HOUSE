@@ -40,7 +40,6 @@
     border:1px solid #475569; background:#0b1220; color:var(--text); font-size:1rem;
   }
 
-  /* شاشة اختيار المجال الأولية (Landing Screen) */
   #domainLanding{
     position:fixed; inset:0; background:rgba(15,23,42,0.98); z-index:300;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -111,7 +110,6 @@
   .empty{grid-column:1/-1; text-align:center; color:var(--muted); padding:30px;}
   #note{width:calc(100% - 32px); margin:8px 16px;}
 
-  /* ===== نافذة الإعدادات ===== */
   #overlay{
     display:none; position:fixed; inset:0; background:rgba(0,0,0,.7);
     z-index:100; justify-content:center; align-items:flex-end;
@@ -181,7 +179,6 @@
 </head>
 <body>
 
-<!-- شاشة اختيار المجال عند فتح التطبيق -->
 <div id="domainLanding">
   <div class="landing-title">☕ coffee HOUSE</div>
   <div class="landing-sub">اختر مجال عملك للبدء:</div>
@@ -218,7 +215,6 @@
   <button id="clearBtn">مسح ✖</button>
 </div>
 
-<!-- ===== مراجعة السلة ===== -->
 <div id="cartOverlay">
   <div id="cartPanel">
     <h2 style="margin-top:0">🛒 مراجعة الطلب</h2>
@@ -229,7 +225,6 @@
   </div>
 </div>
 
-<!-- ===== الإعدادات ===== -->
 <div id="overlay">
   <div id="modal">
     <h2>⚙️ الإعدادات</h2>
@@ -239,7 +234,12 @@
       <div class="hint">عند الضغط على «إرسال»، سيفتح واتساب والطلبية مكتوبة مسبقاً.</div>
     </div>
 
-    <!-- ===== منطقة الإدارة المحمية برمز سري ===== -->
+    <div class="sec-box" style="border:1px solid var(--blue);">
+      <h4 style="color:var(--blue);margin:0 0 6px 0;">🔄 جلب التحديثات من الإدارة</h4>
+      <div class="hint" style="margin-bottom:8px;">اضغط هنا لتحديث القوائم والمنتجات بأحدث ما أضافه المدير فوراً دون استيراد ملف.</div>
+      <button class="btn blue w100" id="syncRemoteBtn">🌐 تحديث البيانات الآن من السحاب</button>
+    </div>
+
     <div id="pinGate">
       <div class="locked-note">🔐 إضافة / تعديل / حذف الفئات والمنتجات<br>يتطلب إدخال الرمز السري</div>
       <div class="sec-box">
@@ -258,7 +258,6 @@
         </div>
       </div>
 
-      <!-- إضافة فئة مع تحديد المجال -->
       <div class="sec-box">
         <h4>📂 إضافة فئة جديدة</h4>
         <div class="row">
@@ -278,7 +277,6 @@
         <input id="newCatImage" type="file" accept="image/*" style="width:100%;margin-top:8px;color:var(--muted)">
       </div>
 
-      <!-- إضافة منتج -->
       <div class="sec-box">
         <h4>🛒 إضافة منتج جديد</h4>
         <div class="row">
@@ -297,7 +295,6 @@
         </div>
       </div>
 
-      <!-- إدارة الفئات والمنتجات -->
       <div class="sec-box">
         <h4>🗂️ إدارة الفئة المحددة</h4>
         <select id="manageCat" style="width:100%;margin-bottom:8px;"></select>
@@ -323,7 +320,6 @@
       </div>
     </div>
 
-    <!-- تصدير / استيراد -->
     <div class="sec-box">
       <h4>💾 تصدير / استيراد البيانات</h4>
       <button class="btn blue w100" id="exportBtn">⬇️ تصدير البيانات (JSON)</button>
@@ -342,69 +338,8 @@ const ADMIN_PIN = "23071990";
 let unlocked = false;
 let currentDomain = localStorage.getItem("selectedDomain") || "";
 
-const DEFAULT_CATEGORIES = [
-  {id:"coffee",  name:"القهوة",        ico:"☕", domain:"باريسطا"},
-  {id:"sugar",   name:"السكر والمحليات",  ico:"🍬", domain:"باريسطا"},
-  {id:"soft",    name:"مشروبات غازية", ico:"🥤", domain:"سيرفيس"},
-  {id:"water",   name:"مياه وعصائر",   ico:"🧃", domain:"سيرفيس"},
-  {id:"tea",     name:"الشاي والأعشاب",ico:"🍵", domain:"باريسطا"},
-  {id:"milk",    name:"حليب وكريمة",   ico:"🥛", domain:"باريسطا"},
-  {id:"choco",   name:"شوكولاتة وموكا", ico:"🍫", domain:"باريسطا"},
-  {id:"dessert", name:"حلويات ومقرمشات", ico:"🍪", domain:"كوزينة"},
-  {id:"clean",   name:"نظافة ومستهلكات", ico:"🧻", domain:"ميناج"},
-  {id:"disposable",name:"أكواب وأدوات", ico:"🥤", domain:"سيرفيس"},
-  {id:"gas",     name:"غاز وكهرباء",   ico:"🔥", domain:"كوزينة"},
-  {id:"other",   name:"أخرى",          ico:"📦", domain:"الكل"},
-];
-const DEFAULT_PRODUCTS = [
-  {id:1,  cat:"coffee", name:"قهوة مطحونة (محمصة)", ico:"☕", unit:"كغ"},
-  {id:2,  cat:"coffee", name:"حبوب قهوة عربية", ico:"🫘", unit:"كغ"},
-  {id:3,  cat:"coffee", name:"قهوة سريعة الذوبان", ico:"⚡", unit:"علبة"},
-  {id:4,  cat:"coffee", name:"إسبريسو (كبسولات)", ico:"🎯", unit:"علبة"},
-  {id:5,  cat:"sugar",  name:"سكر أبيض", ico:"🍚", unit:"كغ"},
-  {id:6,  cat:"sugar",  name:"سكر مكعبات", ico:"🧊", unit:"علبة"},
-  {id:7,  cat:"sugar",  name:"عسل طبيعي", ico:"🍯", unit:"كغ"},
-  {id:8,  cat:"soft",   name:"كوكاكولا", ico:"🥤", unit:"علبة/قنينة"},
-  {id:9,  cat:"soft",   name:"فانتا برتقال", ico:"🍊", unit:"علبة"},
-  {id:10, cat:"soft",   name:"سبرايت", ico:"🍋", unit:"علبة"},
-  {id:11, cat:"soft",   name:"مشروب طاقة", ico:"⚡", unit:"علبة"},
-  {id:12, cat:"soft",   name:"مياه غازية", ico:"🫧", unit:"قنينة"},
-  {id:13, cat:"water",  name:"مياه معدنية صغيرة", ico:"💧", unit:"قنينة"},
-  {id:14, cat:"water",  name:"مياه معدنية كبيرة", ico:"🚰", unit:"قنينة"},
-  {id:15, cat:"water",  name:"عصير برتقال", ico:"🍊", unit:"علبة"},
-  {id:16, cat:"water",  name:"عصير ليمون", ico:"🍋", unit:"علبة"},
-  {id:17, cat:"water",  name:"عصير خوخ/مانجو", ico:"🥭", unit:"علبة"},
-  {id:18, cat:"tea",    name:"شاي أخضر", ico:"🍃", unit:"علبة"},
-  {id:19, cat:"tea",    name:"شاي أسود", ico:"🫖", unit:"علبة"},
-  {id:20, cat:"tea",    name:"نعناع مجفف", ico:"🌿", unit:"كيس"},
-  {id:21, cat:"tea",    name:"أعشاب متنوعة", ico:"🍂", unit:"كيس"},
-  {id:22, cat:"milk",   name:"حليب سائل", ico:"🥛", unit:"لتر"},
-  {id:23, cat:"milk",   name:"حليب بودرة", ico:"🍼", unit:"كغ"},
-  {id:24, cat:"milk",   name:"كريمة خفق", ico:"🍰", unit:"علبة"},
-  {id:25, cat:"choco",  name:"شوكولاتة ساخنة", ico:"🍫", unit:"علبة"},
-  {id:26, cat:"choco",  name:"كاكاو بودرة", ico:"🟤", unit:"كغ"},
-  {id:27, cat:"choco",  name:"صوص شوكولاتة", ico:"🍯", unit:"قنينة"},
-  {id:28, cat:"dessert",name:"بسكويت", ico:"🍪", unit:"علبة"},
-  {id:29, cat:"dessert",name:"كرواصون", ico:"🥐", unit:"علبة"},
-  {id:30, cat:"dessert",name:"مغاربة/كعك", ico:"🥮", unit:"كغ"},
-  {id:31, cat:"dessert",name:"شيبس", ico:"🍟", unit:"كيس"},
-  {id:32, cat:"clean",  name:"مناديل ورقية", ico:"🧻", unit:"علبة"},
-  {id:33, cat:"clean",  name:"معقم أيدي", ico:"🧴", unit:"قنينة"},
-  {id:34, cat:"clean",  name:"سائل جلي", ico:"🫧", unit:"قنينة"},
-  {id:35, cat:"clean",  name:"معطر جو", ico:"🌸", unit:"قنينة"},
-  {id:36, cat:"disposable",name:"أكواب ورقية صغيرة", ico:"🥤", unit:"كيس"},
-  {id:37, cat:"disposable",name:"أكواب ورقية كبيرة", ico:"🥤", unit:"كيس"},
-  {id:38, cat:"disposable",name:"أغطية وأعواد", ico:"🥢", unit:"كيس"},
-  {id:39, cat:"disposable",name:"أكياس تغليف", ico:"🛍️", unit:"رزمة"},
-  {id:40, cat:"disposable",name:"مناديل مائدة", ico:"🍽️", unit:"علبة"},
-  {id:41, cat:"gas",    name:"قارورة غاز", ico:"🔥", unit:"قارورة"},
-  {id:42, cat:"gas",    name:"فحم طبيعي", ico:"🪵", unit:"كيس"},
-  {id:43, cat:"gas",    name:"كبريت / ولاعات", ico:"🔥", unit:"علبة"},
-  {id:44, cat:"other",  name:"مثلجات (ثلج)", ico:"🧊", unit:"كيس"},
-  {id:45, cat:"other",  name:"قهوة تركية", ico:"🇹🇷", unit:"كغ"},
-  {id:46, cat:"other",  name:"بهارات وحلبة", ico:"🌶️", unit:"كغ"},
-  {id:47, cat:"other",  name:"منتج آخر (اذكره في الملاحظة)", ico:"➕", unit:"—"},
-];
+const DEFAULT_CATEGORIES = [{"id": "coffee", "name": "القهوة", "ico": "☕", "domain": "باريسطا"}, {"id": "sugar", "name": "السكر والمحليات", "ico": "🍬", "domain": "باريسطا"}, {"id": "soft", "name": "مشروبات غازية", "ico": "🥤", "domain": "سيرفيس"}, {"id": "water", "name": "مياه وعصائر", "ico": "🧃", "domain": "سيرفيس"}, {"id": "tea", "name": "الشاي والأعشاب", "ico": "🍵", "domain": "باريسطا"}, {"id": "milk", "name": "حليب وكريمة", "ico": "🥛", "domain": "باريسطا"}, {"id": "choco", "name": "شوكولاتة وموكا", "ico": "🍫", "domain": "باريسطا"}, {"id": "dessert", "name": "حلويات ومقرمشات", "ico": "🍪", "domain": "كوزينة"}, {"id": "clean", "name": "نظافة ومستهلكات", "ico": "🧻", "domain": "ميناج"}, {"id": "disposable", "name": "أكواب وأدوات", "ico": "🥤", "domain": "سيرفيس"}, {"id": "gas", "name": "غاز وكهرباء", "ico": "🔥", "domain": "كوزينة"}, {"id": "other", "name": "أخرى", "ico": "📦", "domain": "الكل"}];
+const DEFAULT_PRODUCTS = [{"id": 1, "cat": "coffee", "name": "قهوة مطحونة (محمصة)", "ico": "☕", "unit": "كغ"}, {"id": 2, "cat": "coffee", "name": "حبوب قهوة عربية", "ico": "🫘", "unit": "كغ"}, {"id": 3, "cat": "coffee", "name": "قهوة سريعة الذوبان", "ico": "⚡", "unit": "علبة"}, {"id": 4, "cat": "coffee", "name": "إسبريسو (كبسولات)", "ico": "🎯", "unit": "علبة"}, {"id": 5, "cat": "sugar", "name": "سكر أبيض", "ico": "🍚", "unit": "كغ"}, {"id": 6, "cat": "sugar", "name": "سكر مكعبات", "ico": "🧊", "unit": "علبة"}, {"id": 7, "cat": "sugar", "name": "عسل طبيعي", "ico": "🍯", "unit": "كغ"}, {"id": 8, "cat": "soft", "name": "كوكاكولا", "ico": "🥤", "unit": "علبة/قنينة"}, {"id": 9, "cat": "soft", "name": "فانتا برتقال", "ico": "🍊", "unit": "علبة"}, {"id": 10, "cat": "soft", "name": "سبرايت", "ico": "🍋", "unit": "علبة"}, {"id": 11, "cat": "soft", "name": "مشروب طاقة", "ico": "⚡", "unit": "علبة"}, {"id": 12, "cat": "soft", "name": "مياه غازية", "ico": "🫧", "unit": "قنينة"}, {"id": 13, "cat": "water", "name": "مياه معدنية صغيرة", "ico": "💧", "unit": "قنينة"}, {"id": 14, "cat": "water", "name": "مياه معدنية كبيرة", "ico": "🚰", "unit": "قنينة"}, {"id": 15, "cat": "water", "name": "عصير برتقال", "ico": "🍊", "unit": "علبة"}, {"id": 16, "cat": "water", "name": "عصير ليمون", "ico": "🍋", "unit": "علبة"}, {"id": 17, "cat": "water", "name": "عصير خوخ/مانجو", "ico": "🥭", "unit": "علبة"}, {"id": 18, "cat": "tea", "name": "شاي أخضر", "ico": "🍃", "unit": "علبة"}, {"id": 19, "cat": "tea", "name": "شاي أسود", "ico": "🫖", "unit": "علبة"}, {"id": 20, "cat": "tea", "name": "نعناع مجفف", "ico": "🌿", "unit": "كيس"}, {"id": 21, "cat": "tea", "name": "أعشاب متنوعة", "ico": "🍂", "unit": "كيس"}, {"id": 22, "cat": "milk", "name": "حليب سائل", "ico": "🥛", "unit": "لتر"}, {"id": 23, "cat": "milk", "name": "حليب بودرة", "ico": "🍼", "unit": "كغ"}, {"id": 24, "cat": "milk", "name": "كريمة خفق", "ico": "🍰", "unit": "علبة"}, {"id": 25, "cat": "choco", "name": "شوكولاتة ساخنة", "ico": "🍫", "unit": "علبة"}, {"id": 26, "cat": "choco", "name": "كاكاو بودرة", "ico": "🟤", "unit": "كغ"}, {"id": 27, "cat": "choco", "name": "صوص شوكولاتة", "ico": "🍯", "unit": "قنينة"}, {"id": 28, "cat": "dessert", "name": "بسكويت", "ico": "🍪", "unit": "علبة"}, {"id": 29, "cat": "dessert", "name": "كرواصون", "ico": "🥐", "unit": "علبة"}, {"id": 30, "cat": "dessert", "name": "مغاربة/كعك", "ico": "🥮", "unit": "كغ"}, {"id": 31, "cat": "dessert", "name": "شيبس", "ico": "🍟", "unit": "كيس"}, {"id": 32, "cat": "clean", "name": "مناديل ورقية", "ico": "🧻", "unit": "علبة"}, {"id": 33, "cat": "clean", "name": "معقم أيدي", "ico": "🧴", "unit": "قنينة"}, {"id": 34, "cat": "clean", "name": "سائل جلي", "ico": "🫧", "unit": "قنينة"}, {"id": 35, "cat": "clean", "name": "معطر جو", "ico": "🌸", "unit": "قنينة"}, {"id": 36, "cat": "disposable", "name": "أكواب ورقية صغيرة", "ico": "🥤", "unit": "كيس"}, {"id": 37, "cat": "disposable", "name": "أكواب ورقية كبيرة", "ico": "🥤", "unit": "كيس"}, {"id": 38, "cat": "disposable", "name": "أغطية وأعواد", "ico": "🥢", "unit": "كيس"}, {"id": 39, "cat": "disposable", "name": "أكياس تغليف", "ico": "🛍️", "unit": "رزمة"}, {"id": 40, "cat": "disposable", "name": "مناديل مائدة", "ico": "🍽️", "unit": "علبة"}, {"id": 41, "cat": "gas", "name": "قارورة غاز", "ico": "🔥", "unit": "قارورة"}, {"id": 42, "cat": "gas", "name": "فحم طبيعي", "ico": "🪵", "unit": "كيس"}, {"id": 43, "cat": "gas", "name": "كبريت / ولاعات", "ico": "🔥", "unit": "علبة"}, {"id": 44, "cat": "other", "name": "مثلجات (ثلج)", "ico": "🧊", "unit": "كيس"}, {"id": 45, "cat": "other", "name": "قهوة تركية", "ico": "🇹🇷", "unit": "كغ"}, {"id": 46, "cat": "other", "name": "بهارات وحلبة", "ico": "🌶️", "unit": "كغ"}, {"id": 47, "cat": "other", "name": "منتج آخر (اذكره في الملاحظة)", "ico": "➕", "unit": "—"}];
 
 function loadData(){
   try{
@@ -844,7 +779,6 @@ function renderManage(){
   if(!list.children.length) list.innerHTML = '<div style="color:var(--muted);font-size:.85rem;text-align:center;padding:8px;">لا توجد منتجات</div>';
 }
 
-/* تصدير البيانات */
 document.getElementById("exportBtn").onclick = ()=>{
   const data = {
     categories: CATEGORIES, products: PRODUCTS,
@@ -858,7 +792,6 @@ document.getElementById("exportBtn").onclick = ()=>{
   toast("✅ تم تصدير البيانات بنجاح");
 };
 
-/* استيراد البيانات */
 document.getElementById("importBtn").onclick = ()=> document.getElementById("importFile").click();
 document.getElementById("importFile").addEventListener("change", e=>{
   const f = e.target.files[0];
@@ -883,7 +816,46 @@ document.getElementById("importFile").addEventListener("change", e=>{
   r.readAsText(f);
 });
 
-// تشغيل الفحص الأولي لاختيار المجال
+document.getElementById("syncRemoteBtn").onclick = async ()=>{
+  try {
+    toast("⏳ جاري جلب أحدث البيانات...");
+    const res = await fetch("./coffee-house-data.json?t=" + Date.now());
+    if(!res.ok) throw new Error("ملف البيانات غير موجود على السيرفر");
+    const d = await res.json();
+    if(Array.isArray(d.categories) && Array.isArray(d.products)){
+      CATEGORIES = d.categories;
+      PRODUCTS = d.products;
+      saveCats();
+      saveProds();
+      renderCats();
+      renderProds();
+      overlay.classList.remove("open");
+      toast("✨ تمت المزامنة وتحديث البيانات بنجاح!");
+    } else {
+      throw new Error("تنسيق الملف غير صحيح");
+    }
+  } catch(err){
+    toast("⚠️ تعذر الجلب تأكد من رفع ملف coffee-house-data.json على GitHub");
+  }
+};
+
+window.addEventListener('load', async () => {
+  try {
+    const res = await fetch("./coffee-house-data.json?t=" + Date.now());
+    if(res.ok){
+      const d = await res.json();
+      if(Array.isArray(d.categories) && Array.isArray(d.products)){
+        CATEGORIES = d.categories;
+        PRODUCTS = d.products;
+        saveCats();
+        saveProds();
+        renderCats();
+        renderProds();
+      }
+    }
+  } catch(e){}
+});
+
 checkDomainState();
 </script>
 </body>
