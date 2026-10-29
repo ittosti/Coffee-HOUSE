@@ -110,17 +110,20 @@
   .empty{grid-column:1/-1; text-align:center; color:var(--muted); padding:30px;}
   #note{width:calc(100% - 32px); margin:8px 16px;}
 
-  #overlay{
+  #overlay, #purchasesOverlay, #missingModal{
     display:none; position:fixed; inset:0; background:rgba(0,0,0,.7);
     z-index:100; justify-content:center; align-items:flex-end;
   }
-  #overlay.open{display:flex;}
-  #modal{
+  #overlay.open, #purchasesOverlay.open, #missingModal.open{display:flex;}
+  #modal, #purchasesPanel{
     background:var(--card); width:100%; max-width:520px; max-height:88vh;
     border-radius:22px 22px 0 0; padding:18px; overflow-y:auto;
     border:1px solid #334155;
   }
-  #modal h2{margin:0 0 14px; font-size:1.15rem;}
+  #missingModal{align-items:center;}
+  .missing-content{background:var(--card); width:100%; max-width:440px; padding:20px; border-radius:16px; border:1px solid #334155; text-align:center;}
+  
+  #modal h2, #purchasesPanel h2{margin:0 0 14px; font-size:1.15rem;}
   .sec-box{background:var(--card2); border-radius:14px; padding:14px; margin-bottom:14px;}
   .sec-box h4{margin:0 0 10px; color:#fcd34d; font-size:.95rem;}
   .row{display:flex; gap:8px; margin-bottom:8px;}
@@ -145,7 +148,7 @@
   .del, .edit{background:none; border:none; cursor:pointer; font-size:1.05rem; padding:2px 4px;}
   .del{color:var(--danger);} .edit{color:#fcd34d;}
   #manageList{max-height:220px; overflow-y:auto;}
-  #closeModal{
+  #closeModal, #closePurchases{
     width:100%; padding:12px; border-radius:12px; border:1px solid #475569;
     background:#0b1220; color:var(--muted); font-size:1rem; cursor:pointer; margin-top:4px;
   }
@@ -156,6 +159,8 @@
     border-radius:999px; z-index:200; display:none; box-shadow:0 4px 20px rgba(0,0,0,.5);
   }
   #cartBtn{background:#334155;border:1px solid #64748b;color:#fff;border-radius:12px;padding:10px 12px;font-size:1.1rem;cursor:pointer;white-space:nowrap;}
+  #purchasesNavBtn{background:#1e3a8a; border:1px solid #3b82f6; color:#fff; border-radius:12px; padding:8px 12px; font-size:.9rem; cursor:pointer; font-weight:700;}
+  
   #cartOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:120;justify-content:center;align-items:flex-end;}
   #cartOverlay.open{display:flex;}
   #cartPanel{background:var(--card);width:100%;max-width:520px;max-height:85vh;overflow:auto;border-radius:22px 22px 0 0;padding:18px;border:1px solid #334155;}
@@ -168,6 +173,14 @@
     background:#0b1220; border:1px dashed #475569; border-radius:12px;
     padding:14px; text-align:center; color:var(--muted); font-size:.9rem; margin-bottom:14px;
   }
+  
+  /* Purchases tracking styles */
+  .order-card { background: #0b1220; border: 1px solid #334155; border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+  .order-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 6px; margin-bottom: 8px; font-size:.9rem; color:var(--accent); }
+  .item-line { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px dashed #334155; font-size:.92rem; }
+  .btn-yes { background: #22c55e; color: #04180b; border: none; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-weight:700; font-size:.85rem; }
+  .btn-missing { background: #ef4444; color: #fff; border: none; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-weight:700; font-size:.85rem; }
+  .btn-yes-all { background: #22c55e; color: #04180b; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 10px; width: 100%; font-size:.9rem; }
 </style>
 <script>
   if ('serviceWorker' in navigator) {
@@ -195,6 +208,7 @@
   <div class="toprow">
     <div class="logo">☕ <span id="appTitle">coffee HOUSE</span></div>
     <div class="header-actions">
+      <button id="purchasesNavBtn" title="متابعة النواقص">📦 النواقص</button>
       <button class="header-btn" id="changeDomainBtn" title="تغيير المجال">🔄 المجال</button>
       <button id="settingsBtn" title="الإعدادات">⚙️</button>
     </div>
@@ -225,13 +239,38 @@
   </div>
 </div>
 
+<!-- Purchases / Missing items tracking modal -->
+<div id="purchasesOverlay">
+  <div id="purchasesPanel">
+    <h2>📦 متابعة المشتريات والنواقص</h2>
+    <div class="hint" style="margin-bottom:12px;">عند عودة المكلف بالشراء، قم بتحديد المنتجات المتوفرة (نعم) أو الناقصة (ناقص) للإبقاء عليها:</div>
+    <div id="purchasesContainer">
+      <div class="empty">لا توجد طلبات معلقة حالياً 🎉</div>
+    </div>
+    <button id="closePurchases">✖ إغلاق</button>
+  </div>
+</div>
+
+<!-- Missing items smart prompt modal on startup -->
+<div id="missingModal">
+  <div class="missing-content">
+    <h3 style="margin-top:0; color:var(--accent);">⚠️ تنبيه نواقص سابقة</h3>
+    <p style="font-size:.95rem; line-height:1.5;">توجد منتجات ناقصة من الطلبات السابقة. هل تريد إضافتها تلقائياً إلى الطلب الحالي؟</p>
+    <div id="missingItemsPreview" style="max-height: 140px; overflow-y: auto; text-align: right; background: #0b1220; padding: 10px; margin: 12px 0; border-radius: 8px; font-size: 0.88rem; border:1px solid #334155;"></div>
+    <div style="display:flex; gap:10px; margin-top:16px;">
+      <button class="btn green" style="flex:1;" onclick="addMissingToCart()">نعم، أضف النواقص</button>
+      <button class="btn gray" style="flex:1;" onclick="closeMissingModal()">لا، ابدأ طلباً جديداً</button>
+    </div>
+  </div>
+</div>
+
 <div id="overlay">
   <div id="modal">
     <h2>⚙️ الإعدادات</h2>
 
     <div class="sec-box">
       <h4>📲 إرسال الطلب عبر واتساب</h4>
-      <div class="hint">عند الضغط على «إرسال»، سيفتح واتساب والطلبية مكتوبة مسبقاً.</div>
+      <div class="hint">عند الضغط على «إرسال»، سيفتح واتساب والطلبية مكتوبة مسبقاً ويتم حفظ الطلب تلقائياً لمتابعة النواقص.</div>
     </div>
 
     <div class="sec-box" style="border:1px solid var(--blue);">
@@ -363,7 +402,7 @@ function saveCats(){ localStorage.setItem("cats", JSON.stringify(CATEGORIES)); }
 function saveProds(){ localStorage.setItem("prods", JSON.stringify(PRODUCTS)); }
 
 function getFilteredCategories(){
-  if(currentDomain === "الكل") return CATEGORIES;
+  if(!currentDomain || currentDomain === "الكل") return CATEGORIES;
   return CATEGORIES.filter(c => (c.domain || "الكل") === currentDomain || c.domain === "الكل");
 }
 
@@ -377,17 +416,23 @@ function checkDomainState(){
   } else {
     landingEl.classList.add("hidden");
     document.getElementById("appTitle").textContent = `coffee HOUSE (${currentDomain})`;
+    selectedCat = null; // reset category to force recalculation for new domain
     renderCats();
     renderProds();
+    checkPendingMissingOnStartup();
   }
 }
 
-document.querySelectorAll(".domain-card").forEach(btn => {
-  btn.onclick = () => {
-    currentDomain = btn.dataset.domain;
-    localStorage.setItem("selectedDomain", currentDomain);
-    checkDomainState();
-  };
+// Ensure event listener for domain cards is attached reliably and robustly
+document.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll(".domain-card").forEach(btn => {
+    btn.addEventListener("click", () => {
+      currentDomain = btn.getAttribute("data-domain");
+      localStorage.setItem("selectedDomain", currentDomain);
+      checkDomainState();
+    });
+  });
+  checkDomainState();
 });
 
 document.getElementById("changeDomainBtn").onclick = () => {
@@ -499,7 +544,7 @@ function buildMessage(){
   Object.keys(cart).forEach(id=>{
     const p = PRODUCTS.find(x=>x.id==id);
     if(!p) return;
-    (byCat[p.cat] = byCat[p.cat] || []).push({p, q: cart[id]});
+    (byCat[p.cat] = byCat[p.cat] || []).push({p, q: cart[id], id: p.id, name: p.name, unit: p.unit, ico: p.ico});
     total++;
   });
   CATEGORIES.forEach(c=>{
@@ -514,6 +559,35 @@ function buildMessage(){
   if(note) msg += `📝 ملاحظة: ${note}\n`;
   msg += "\n✅ الرجاء تأكيد الطلب، شكراً 🙏";
   return msg;
+}
+
+function getCartOrderDetails(){
+  const worker = document.getElementById("workerName").value.trim();
+  const note = document.getElementById("note").value.trim();
+  const now = new Date().toLocaleString("ar-MA");
+  let items = [];
+  Object.keys(cart).forEach(id=>{
+    const p = PRODUCTS.find(x=>x.id==id);
+    if(p){
+      items.push({ id: p.id, name: p.name, quantity: cart[id], unit: p.unit || "وحدة", ico: p.ico || "📦" });
+    }
+  });
+  return {
+    id: 'ORD-' + Date.now(),
+    timestamp: now,
+    domain: currentDomain,
+    worker: worker || 'غير محدد',
+    note: note,
+    items: items
+  };
+}
+
+function savePendingOrder(order){
+  try {
+    let pending = JSON.parse(localStorage.getItem("pending_purchases") || "[]");
+    pending.push(order);
+    localStorage.setItem("pending_purchases", JSON.stringify(pending));
+  } catch(e){}
 }
 
 function renderCart(){
@@ -542,8 +616,13 @@ cartOverlay.addEventListener("click",e=>{if(e.target===cartOverlay)cartOverlay.c
 document.getElementById("cartNote").addEventListener("input",e=>document.getElementById("note").value=e.target.value);
 document.getElementById("note").addEventListener("input",e=>document.getElementById("cartNote").value=e.target.value);
 document.getElementById("cartSendBtn").onclick=()=>document.getElementById("sendBtn").click();
+
 document.getElementById("sendBtn").onclick = ()=>{
   if(!Object.keys(cart).length){ toast("⚠️ أضف منتجاً إلى الطلب أولاً"); return; }
+  
+  const orderObj = getCartOrderDetails();
+  savePendingOrder(orderObj);
+
   const msg = buildMessage();
   Object.keys(cart).forEach(k=>delete cart[k]);
   document.getElementById("note").value="";
@@ -552,7 +631,130 @@ document.getElementById("sendBtn").onclick = ()=>{
   document.getElementById("search").value="";
   update(); renderCats(); renderProds();
   cartOverlay.classList.remove("open");
-  window.location.href = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+  
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+  toast("✅ تم حفظ الطلب وإرساله بنجاح");
+};
+
+// Purchases & Missing tracking UI logic
+const purchasesOverlay = document.getElementById("purchasesOverlay");
+document.getElementById("purchasesNavBtn").onclick = () => {
+  renderPurchasesList();
+  purchasesOverlay.classList.add("open");
+};
+document.getElementById("closePurchases").onclick = () => purchasesOverlay.classList.remove("open");
+purchasesOverlay.addEventListener("click", e => { if(e.target === purchasesOverlay) purchasesOverlay.classList.remove("open"); });
+
+function getPendingPurchases(){
+  try {
+    return JSON.parse(localStorage.getItem("pending_purchases") || "[]");
+  } catch(e){ return []; }
+}
+
+function savePendingPurchases(list){
+  localStorage.setItem("pending_purchases", JSON.stringify(list));
+}
+
+function renderPurchasesList(){
+  const container = document.getElementById("purchasesContainer");
+  const pending = getPendingPurchases();
+  if(!pending.length){
+    container.innerHTML = '<div class="empty">لا توجد طلبات معلقة أو نواقص حالياً 🎉</div>';
+    return;
+  }
+  let html = "";
+  pending.forEach((order, ordIdx) => {
+    html += `
+      <div class="order-card">
+        <div class="order-header">
+          <span>طلب: ${order.worker} (${order.domain})</span>
+          <span>${order.timestamp}</span>
+        </div>
+    `;
+    if(order.note){
+      html += `<div style="font-size:.85rem; color:var(--muted); margin-bottom:8px;">📝 ملاحظة: ${order.note}</div>`;
+    }
+    order.items.forEach((item, itemIdx) => {
+      html += `
+        <div class="item-line">
+          <div>${item.ico||"📦"} <strong>${item.name}</strong> (${item.quantity} ${item.unit})</div>
+          <div style="display:flex; gap:6px;">
+            <button class="btn-yes" onclick="resolvePurchaseItem(${ordIdx}, ${itemIdx}, 'yes')">نعم</button>
+            <button class="btn-missing" onclick="resolvePurchaseItem(${ordIdx}, ${itemIdx}, 'missing')">ناقص</button>
+          </div>
+        </div>
+      `;
+    });
+    html += `
+        <button class="btn-yes-all" onclick="resolveEntireOrder(${ordIdx})">نعم الكل (تم شراء جميع المنتجات)</button>
+      </div>
+    `;
+  });
+  container.innerHTML = html;
+}
+
+window.resolvePurchaseItem = function(ordIdx, itemIdx, action){
+  let pending = getPendingPurchases();
+  if(!pending[ordIdx]) return;
+  if(action === 'yes'){
+    pending[ordIdx].items.splice(itemIdx, 1);
+    if(pending[ordIdx].items.length === 0){
+      pending.splice(ordIdx, 1);
+    }
+  } else if(action === 'missing'){
+    toast("📌 تم الاحتفاظ بالمنتج كـ ناقص للطلب القادم");
+  }
+  savePendingPurchases(pending);
+  renderPurchasesList();
+};
+
+window.resolveEntireOrder = function(ordIdx){
+  let pending = getPendingPurchases();
+  if(!pending[ordIdx]) return;
+  pending.splice(ordIdx, 1);
+  savePendingPurchases(pending);
+  renderPurchasesList();
+  toast("✅ تم إزالة الطلب كاملاً بنجاح");
+};
+
+let accumulatedMissingItems = [];
+
+function checkPendingMissingOnStartup(){
+  const pending = getPendingPurchases();
+  if(!pending.length) return;
+  
+  accumulatedMissingItems = [];
+  pending.forEach(order => {
+    order.items.forEach(item => {
+      accumulatedMissingItems.push(item);
+    });
+  });
+
+  if(accumulatedMissingItems.length > 0){
+    let previewHtml = "<ul>";
+    accumulatedMissingItems.forEach(i => {
+      previewHtml += `<li style="margin-bottom:4px;">${i.ico||"📦"} ${i.name} (${i.quantity} ${i.unit})</li>`;
+    });
+    previewHtml += "</ul>";
+    document.getElementById("missingItemsPreview").innerHTML = previewHtml;
+    document.getElementById("missingModal").classList.add("open");
+  }
+}
+
+window.closeMissingModal = function(){
+  document.getElementById("missingModal").classList.remove("open");
+};
+
+window.addMissingToCart = function(){
+  accumulatedMissingItems.forEach(item => {
+    const prod = PRODUCTS.find(p => p.name === item.name);
+    if(prod){
+      cart[prod.id] = (cart[prod.id] || 0) + (parseInt(item.quantity) || 1);
+    }
+  });
+  update();
+  closeMissingModal();
+  toast("✨ تمت إضافة المنتجات الناقصة إلى السلة بنجاح");
 };
 
 function toast(t){
@@ -838,25 +1040,6 @@ document.getElementById("syncRemoteBtn").onclick = async ()=>{
     toast("⚠️ تعذر الجلب تأكد من رفع ملف coffee-house-data.json على GitHub");
   }
 };
-
-window.addEventListener('load', async () => {
-  try {
-    const res = await fetch("./coffee-house-data.json?t=" + Date.now());
-    if(res.ok){
-      const d = await res.json();
-      if(Array.isArray(d.categories) && Array.isArray(d.products)){
-        CATEGORIES = d.categories;
-        PRODUCTS = d.products;
-        saveCats();
-        saveProds();
-        renderCats();
-        renderProds();
-      }
-    }
-  } catch(e){}
-});
-
-checkDomainState();
 </script>
 </body>
 </html>
