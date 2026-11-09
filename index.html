@@ -408,14 +408,8 @@
 <div id="toast"></div>
 
 <script>
-// تم ربط قاعدة بيانات Firebase الخاصة بك هنا بنجاح
-const firebaseConfig = {
-  databaseURL: "https://coffe-house-marche-default-rtdb.firebaseio.com"
-};
-if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
-}
-const db = firebase.database();
+// إعدادات Firebase الخاصة بك
+const FIREBASE_URL = "https://coffe-house-marche-default-rtdb.firebaseio.com";
 
 const ADMIN_PIN = "23071990";
 let unlocked = false;
@@ -612,18 +606,22 @@ function getCartOrderDetails(){
   };
 }
 
-function savePendingOrder(order){
+// دالة الحفظ السحابي عبر Fetch المباشر
+async function savePendingOrder(order){
   try {
-    // النواقص تُحفظ محلياً على هذا الجهاز الخاص بالعامل فقط
+    // 1. النواقص تُحفظ محلياً على هذا الجهاز الخاص بالعامل فقط
     let pending = JSON.parse(localStorage.getItem("pending_purchases") || "[]");
     pending.push(order);
     localStorage.setItem("pending_purchases", JSON.stringify(pending));
     
-    // التقارير تُرسل سحابياً إلى Firebase لكي تراها أنت من أي مكان
-    db.ref("historical_orders").push(order).catch(err => {
-      console.log("Firebase save error: ", err);
+    // 2. إرسال الطلب إلى Firebase سحابياً
+    await fetch(`${FIREBASE_URL}/historical_orders.json`, {
+      method: 'POST',
+      body: JSON.stringify(order)
     });
-  } catch(e){}
+  } catch(e){
+    console.log("Save error: ", e);
+  }
 }
 
 function renderCart(){
@@ -650,11 +648,11 @@ document.getElementById("cartNote").addEventListener("input",e=>document.getElem
 document.getElementById("note").addEventListener("input",e=>document.getElementById("cartNote").value=e.target.value);
 document.getElementById("cartSendBtn").onclick=()=>document.getElementById("sendBtn").click();
 
-document.getElementById("sendBtn").onclick = ()=>{
+document.getElementById("sendBtn").onclick = async ()=>{
   if(!Object.keys(cart).length){ toast("⚠️ أضف منتجاً إلى الطلب أولاً"); return; }
   
   const orderObj = getCartOrderDetails();
-  savePendingOrder(orderObj);
+  await savePendingOrder(orderObj);
 
   const msg = buildMessage();
   Object.keys(cart).forEach(k=>delete cart[k]);
@@ -790,7 +788,7 @@ window.addMissingToCart = function(){
   toast("✨ تمت إضافة المنتجات الناقصة إلى السلة بنجاح");
 };
 
-// Reports Feature Logic (Fetching from Firebase Realtime Database)
+// Reports Feature Logic (Fetching via Direct REST API)
 const reportsOverlay = document.getElementById("reportsOverlay");
 document.getElementById("openReportsBtn").onclick = () => {
   fetchAndRenderReports();
@@ -801,18 +799,19 @@ reportsOverlay.addEventListener("click", e => { if(e.target === reportsOverlay) 
 
 let cachedFirebaseOrders = [];
 
-function fetchAndRenderReports(dateFrom = "", dateTo = ""){
+async function fetchAndRenderReports(dateFrom = "", dateTo = ""){
   const container = document.getElementById("reportsContainer");
   container.innerHTML = '<div class="empty">جاري جلب التقارير من السحابة... ⏳</div>';
 
-  db.ref("historical_orders").once("value", snapshot => {
-    const data = snapshot.val() || {};
+  try {
+    const res = await fetch(`${FIREBASE_URL}/historical_orders.json`);
+    const data = await res.json() || {};
     cachedFirebaseOrders = Object.values(data);
     renderReportsData(dateFrom, dateTo);
-  }, error => {
-    console.error(error);
+  } catch(e){
+    console.error(e);
     container.innerHTML = '<div class="empty">⚠️ تعذر الاتصال بقاعدة البيانات السحابية</div>';
-  });
+  }
 }
 
 function renderReportsData(dateFrom = "", dateTo = ""){
@@ -838,12 +837,14 @@ function renderReportsData(dateFrom = "", dateTo = ""){
 
   const counts = {};
   filtered.forEach(order => {
-    order.items.forEach(item => {
-      if(!counts[item.name]){
-        counts[item.name] = { name: item.name, ico: item.ico || "📦", count: 0 };
-      }
-      counts[item.name].count += 1;
-    });
+    if(order && order.items){
+      order.items.forEach(item => {
+        if(!counts[item.name]){
+          counts[item.name] = { name: item.name, ico: item.ico || "📦", count: 0 };
+        }
+        counts[item.name].count += 1;
+      });
+    }
   });
 
   const sortedProducts = Object.values(counts).sort((a,b) => b.count - a.count);
@@ -877,7 +878,7 @@ document.getElementById("resetReportsBtn").onclick = () => {
   renderReportsData();
 };
 
-document.getElementById("clearRangeReportsBtn").onclick = () => {
+document.getElementById("clearRangeReportsBtn").onclick = async () => {
   const dFromStr = document.getElementById("reportDateFrom").value;
   const dToStr = document.getElementById("reportDateTo").value;
   
@@ -894,8 +895,9 @@ document.getElementById("clearRangeReportsBtn").onclick = () => {
   const dTo = dToStr ? new Date(dToStr) : null;
   if(dTo) dTo.setHours(23,59,59,999);
 
-  db.ref("historical_orders").once("value", snapshot => {
-    const val = snapshot.val() || {};
+  try {
+    const res = await fetch(`${FIREBASE_URL}/historical_orders.json`);
+    const val = await res.json() || {};
     let updates = {};
     Object.keys(val).forEach(key => {
       const o = val[key];
@@ -903,17 +905,20 @@ document.getElementById("clearRangeReportsBtn").onclick = () => {
       let matchFrom = dFrom ? oDate >= dFrom : true;
       let matchTo = dTo ? oDate <= dTo : true;
       if(matchFrom && matchTo){
-        updates[key] = null; // حذف من Firebase
+        updates[key] = null; // حذف السجل من Firebase
       }
     });
 
-    db.ref("historical_orders").update(updates).then(() => {
-      toast("🗑️ تم مسح تقارير الفترة المحددة من السحابة بنجاح");
-      fetchAndRenderReports(dFromStr, dToStr);
-    }).catch(err => {
-      toast("⚠️ حدث خطأ أثناء الحذف");
+    await fetch(`${FIREBASE_URL}/historical_orders.json`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates)
     });
-  });
+
+    toast("🗑️ تم مسح تقارير الفترة المحددة من السحابة بنجاح");
+    fetchAndRenderReports(dFromStr, dToStr);
+  } catch(err) {
+    toast("⚠️ حدث خطأ أثناء الحذف");
+  }
 };
 
 function toast(t){
