@@ -7,6 +7,11 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f172a">
 <link rel="apple-touch-icon" href="icon-192.png">
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
 <style>
   :root{
     --bg:#0f172a; --card:#1e293b; --card2:#253449; --accent:#f59e0b;
@@ -76,22 +81,17 @@
   #products{padding:10px 16px; display:grid; grid-template-columns:1fr 1fr; gap:12px;}
   .prod{
     background:var(--card); border-radius:16px; padding:14px; cursor:pointer;
-    border:2px solid transparent; transition:.15s; text-align:center;
+    border:2px solid transparent; transition:.15s; text-align:center; position:relative;
   }
   .prod:active{transform:scale(.96);}
   .prod.selected{border-color:var(--accent2); background:#12261a;}
+  .prod-check{position:absolute; top:8px; left:8px; background:var(--accent2); color:#04180b; border-radius:50%; width:22px; height:22px; font-size:.8rem; display:none; align-items:center; justify-content:center; font-weight:800;}
+  .prod.selected .prod-check{display:flex;}
   .prod .ico{font-size:2rem;}
   .item-photo{width:72px;height:72px;object-fit:cover;border-radius:12px;display:block;margin:0 auto 6px;}
   .cat-photo{width:24px;height:24px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-left:5px;}
   .manage-photo{width:42px;height:42px;object-fit:cover;border-radius:8px;}
   .prod .nm{margin-top:6px; font-weight:700; font-size:.95rem;}
-  .prod .unit{color:var(--muted); font-size:.78rem; margin-top:2px;}
-  .qty{display:none; margin-top:8px; align-items:center; justify-content:center; gap:12px;}
-  .prod.selected .qty{display:flex;}
-  .qbtn{width:32px; height:32px; border-radius:50%; border:none; font-size:1.15rem;
-    font-weight:800; cursor:pointer; color:#fff;}
-  .qminus{background:var(--danger);} .qplus{background:var(--accent2);}
-  .qval{min-width:26px; font-weight:800; font-size:1.1rem;}
   
   #bar{
     position:fixed; bottom:0; right:0; left:0; z-index:60;
@@ -114,8 +114,14 @@
     display:none; position:fixed; inset:0; background:rgba(0,0,0,.7);
     z-index:100; justify-content:center; align-items:flex-end;
   }
+  #reportsOverlay{
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,.75);
+    z-index:250; justify-content:center; align-items:flex-end;
+  }
   #overlay.open, #purchasesOverlay.open, #missingModal.open{display:flex;}
-  #modal, #purchasesPanel{
+  #reportsOverlay.open{display:flex;}
+  
+  #modal, #purchasesPanel, #reportsPanel{
     background:var(--card); width:100%; max-width:520px; max-height:88vh;
     border-radius:22px 22px 0 0; padding:18px; overflow-y:auto;
     border:1px solid #334155;
@@ -123,7 +129,7 @@
   #missingModal{align-items:center;}
   .missing-content{background:var(--card); width:100%; max-width:440px; padding:20px; border-radius:16px; border:1px solid #334155; text-align:center;}
   
-  #modal h2, #purchasesPanel h2{margin:0 0 14px; font-size:1.15rem;}
+  #modal h2, #purchasesPanel h2, #reportsPanel h2{margin:0 0 14px; font-size:1.15rem;}
   .sec-box{background:var(--card2); border-radius:14px; padding:14px; margin-bottom:14px;}
   .sec-box h4{margin:0 0 10px; color:#fcd34d; font-size:.95rem;}
   .row{display:flex; gap:8px; margin-bottom:8px;}
@@ -148,7 +154,7 @@
   .del, .edit{background:none; border:none; cursor:pointer; font-size:1.05rem; padding:2px 4px;}
   .del{color:var(--danger);} .edit{color:#fcd34d;}
   #manageList{max-height:220px; overflow-y:auto;}
-  #closeModal, #closePurchases{
+  #closeModal, #closePurchases, #closeReports{
     width:100%; padding:12px; border-radius:12px; border:1px solid #475569;
     background:#0b1220; color:var(--muted); font-size:1rem; cursor:pointer; margin-top:4px;
   }
@@ -156,7 +162,7 @@
   #toast{
     position:fixed; bottom:90px; right:50%; transform:translateX(50%);
     background:var(--accent2); color:#04180b; font-weight:700; padding:10px 22px;
-    border-radius:999px; z-index:200; display:none; box-shadow:0 4px 20px rgba(0,0,0,.5);
+    border-radius:999px; z-index:350; display:none; box-shadow:0 4px 20px rgba(0,0,0,.5);
   }
   #cartBtn{background:#334155;border:1px solid #64748b;color:#fff;border-radius:12px;padding:10px 12px;font-size:1.1rem;cursor:pointer;white-space:nowrap;}
   #purchasesNavBtn{background:#1e3a8a; border:1px solid #3b82f6; color:#fff; border-radius:12px; padding:8px 12px; font-size:.9rem; cursor:pointer; font-weight:700;}
@@ -168,7 +174,6 @@
   .cart-row .cart-name{flex:1;min-width:0;}
   .cart-row button{border:0;border-radius:8px;padding:8px 10px;color:white;cursor:pointer;}
   .cart-remove{background:var(--danger);}
-  .cart-qty{background:#475569;}
   .locked-note{
     background:#0b1220; border:1px dashed #475569; border-radius:12px;
     padding:14px; text-align:center; color:var(--muted); font-size:.9rem; margin-bottom:14px;
@@ -181,6 +186,10 @@
   .btn-yes { background: #22c55e; color: #04180b; border: none; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-weight:700; font-size:.85rem; }
   .btn-missing { background: #ef4444; color: #fff; border: none; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-weight:700; font-size:.85rem; }
   .btn-yes-all { background: #22c55e; color: #04180b; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 10px; width: 100%; font-size:.9rem; }
+  
+  /* Reports styles */
+  .report-item { display: flex; justify-content: space-between; align-items: center; background: #0b1220; border: 1px solid #334155; border-radius: 10px; padding: 10px 14px; margin-bottom: 8px; font-size: .95rem; }
+  .report-count { background: var(--accent); color: #1a1205; font-weight: 800; padding: 2px 10px; border-radius: 999px; font-size: .85rem; }
 </style>
 <script>
   if ('serviceWorker' in navigator) {
@@ -251,6 +260,27 @@
   </div>
 </div>
 
+<!-- Reports Modal -->
+<div id="reportsOverlay">
+  <div id="reportsPanel">
+    <h2>📊 تقارير طلبات المنتجات (السحابية)</h2>
+    <div class="sec-box">
+      <h4>📅 تصفية حسب التاريخ</h4>
+      <div class="row">
+        <input id="reportDateFrom" type="date">
+        <input id="reportDateTo" type="date">
+        <button class="btn blue" id="filterReportsBtn">فلترة</button>
+      </div>
+      <button class="btn gray w100" id="resetReportsBtn" style="margin-top:4px;">إلغاء التصفية وعرض الكل</button>
+      <button class="btn red w100" id="clearRangeReportsBtn" style="margin-top:8px;">🗑️ مسح تقارير الفترة المحددة</button>
+    </div>
+    <div id="reportsContainer">
+      <div class="empty">جاري تحميل التقارير من السحابة... ⏳</div>
+    </div>
+    <button id="closeReports">✖ إغلاق</button>
+  </div>
+</div>
+
 <!-- Missing items smart prompt modal on startup -->
 <div id="missingModal">
   <div class="missing-content">
@@ -297,6 +327,12 @@
         </div>
       </div>
 
+      <!-- زر التقارير -->
+      <div class="sec-box">
+        <h4>📊 التقارير والإحصائيات</h4>
+        <button class="btn blue w100" id="openReportsBtn">📈 تقارير المنتجات المطلوبة</button>
+      </div>
+
       <div class="sec-box">
         <h4>📂 إضافة فئة جديدة</h4>
         <div class="row">
@@ -324,8 +360,7 @@
         </div>
         <div class="row">
           <select id="newProdCat"></select>
-          <input id="newProdUnit" type="text" placeholder="الوحدة (كغ/علبة...)" style="max-width:150px;">
-          <button class="btn green" id="addProdBtn">➕ إضافة</button>
+          <button class="btn green" id="addProdBtn" style="flex:1;">➕ إضافة</button>
         </div>
         <input id="newProdGroup" type="text" placeholder="المجموعة داخل الفئة — اختياري" style="width:100%;margin-top:8px">
         <div style="display:flex; gap:8px; margin-top:8px; align-items:center;">
@@ -373,12 +408,21 @@
 <div id="toast"></div>
 
 <script>
+// تم ربط قاعدة بيانات Firebase الخاصة بك هنا بنجاح
+const firebaseConfig = {
+  databaseURL: "https://coffe-house-marche-default-rtdb.firebaseio.com"
+};
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
+const db = firebase.database();
+
 const ADMIN_PIN = "23071990";
 let unlocked = false;
 let currentDomain = localStorage.getItem("selectedDomain") || "";
 
 const DEFAULT_CATEGORIES = [{"id": "coffee", "name": "القهوة", "ico": "☕", "domain": "باريسطا"}, {"id": "sugar", "name": "السكر والمحليات", "ico": "🍬", "domain": "باريسطا"}, {"id": "soft", "name": "مشروبات غازية", "ico": "🥤", "domain": "سيرفيس"}, {"id": "water", "name": "مياه وعصائر", "ico": "🧃", "domain": "سيرفيس"}, {"id": "tea", "name": "الشاي والأعشاب", "ico": "🍵", "domain": "باريسطا"}, {"id": "milk", "name": "حليب وكريمة", "ico": "🥛", "domain": "باريسطا"}, {"id": "choco", "name": "شوكولاتة وموكا", "ico": "🍫", "domain": "باريسطا"}, {"id": "dessert", "name": "حلويات ومقرمشات", "ico": "🍪", "domain": "كوزينة"}, {"id": "clean", "name": "نظافة ومستهلكات", "ico": "🧻", "domain": "ميناج"}, {"id": "disposable", "name": "أكواب وأدوات", "ico": "🥤", "domain": "سيرفيس"}, {"id": "gas", "name": "غاز وكهرباء", "ico": "🔥", "domain": "كوزينة"}, {"id": "other", "name": "أخرى", "ico": "📦", "domain": "الكل"}];
-const DEFAULT_PRODUCTS = [{"id": 1, "cat": "coffee", "name": "قهوة مطحونة (محمصة)", "ico": "☕", "unit": "كغ"}, {"id": 2, "cat": "coffee", "name": "حبوب قهوة عربية", "ico": "🫘", "unit": "كغ"}, {"id": 3, "cat": "coffee", "name": "قهوة سريعة الذوبان", "ico": "⚡", "unit": "علبة"}, {"id": 4, "cat": "coffee", "name": "إسبريسو (كبسولات)", "ico": "🎯", "unit": "علبة"}, {"id": 5, "cat": "sugar", "name": "سكر أبيض", "ico": "🍚", "unit": "كغ"}, {"id": 6, "cat": "sugar", "name": "سكر مكعبات", "ico": "🧊", "unit": "علبة"}, {"id": 7, "cat": "sugar", "name": "عسل طبيعي", "ico": "🍯", "unit": "كغ"}, {"id": 8, "cat": "soft", "name": "كوكاكولا", "ico": "🥤", "unit": "علبة/قنينة"}, {"id": 9, "cat": "soft", "name": "فانتا برتقال", "ico": "🍊", "unit": "علبة"}, {"id": 10, "cat": "soft", "name": "سبرايت", "ico": "🍋", "unit": "علبة"}, {"id": 11, "cat": "soft", "name": "مشروب طاقة", "ico": "⚡", "unit": "علبة"}, {"id": 12, "cat": "soft", "name": "مياه غازية", "ico": "🫧", "unit": "قنينة"}, {"id": 13, "cat": "water", "name": "مياه معدنية صغيرة", "ico": "💧", "unit": "قنينة"}, {"id": 14, "cat": "water", "name": "مياه معدنية كبيرة", "ico": "🚰", "unit": "قنينة"}, {"id": 15, "cat": "water", "name": "عصير برتقال", "ico": "🍊", "unit": "علبة"}, {"id": 16, "cat": "water", "name": "عصير ليمون", "ico": "🍋", "unit": "علبة"}, {"id": 17, "cat": "water", "name": "عصير خوخ/مانجو", "ico": "🥭", "unit": "علبة"}, {"id": 18, "cat": "tea", "name": "شاي أخضر", "ico": "🍃", "unit": "علبة"}, {"id": 19, "cat": "tea", "name": "شاي أسود", "ico": "🫖", "unit": "علبة"}, {"id": 20, "cat": "tea", "name": "نعناع مجفف", "ico": "🌿", "unit": "كيس"}, {"id": 21, "cat": "tea", "name": "أعشاب متنوعة", "ico": "🍂", "unit": "كيس"}, {"id": 22, "cat": "milk", "name": "حليب سائل", "ico": "🥛", "unit": "لتر"}, {"id": 23, "cat": "milk", "name": "حليب بودرة", "ico": "🍼", "unit": "كغ"}, {"id": 24, "cat": "milk", "name": "كريمة خفق", "ico": "🍰", "unit": "علبة"}, {"id": 25, "cat": "choco", "name": "شوكولاتة ساخنة", "ico": "🍫", "unit": "علبة"}, {"id": 26, "cat": "choco", "name": "كاكاو بودرة", "ico": "🟤", "unit": "كغ"}, {"id": 27, "cat": "choco", "name": "صوص شوكولاتة", "ico": "🍯", "unit": "قنينة"}, {"id": 28, "cat": "dessert", "name": "بسكويت", "ico": "🍪", "unit": "علبة"}, {"id": 29, "cat": "dessert", "name": "كرواصون", "ico": "🥐", "unit": "علبة"}, {"id": 30, "cat": "dessert", "name": "مغاربة/كعك", "ico": "🥮", "unit": "كغ"}, {"id": 31, "cat": "dessert", "name": "شيبس", "ico": "🍟", "unit": "كيس"}, {"id": 32, "cat": "clean", "name": "مناديل ورقية", "ico": "🧻", "unit": "علبة"}, {"id": 33, "cat": "clean", "name": "معقم أيدي", "ico": "🧴", "unit": "قنينة"}, {"id": 34, "cat": "clean", "name": "سائل جلي", "ico": "🫧", "unit": "قنينة"}, {"id": 35, "cat": "clean", "name": "معطر جو", "ico": "🌸", "unit": "قنينة"}, {"id": 36, "cat": "disposable", "name": "أكواب ورقية صغيرة", "ico": "🥤", "unit": "كيس"}, {"id": 37, "cat": "disposable", "name": "أكواب ورقية كبيرة", "ico": "🥤", "unit": "كيس"}, {"id": 38, "cat": "disposable", "name": "أغطية وأعواد", "ico": "🥢", "unit": "كيس"}, {"id": 39, "cat": "disposable", "name": "أكياس تغليف", "ico": "🛍️", "unit": "رزمة"}, {"id": 40, "cat": "disposable", "name": "مناديل مائدة", "ico": "🍽️", "unit": "علبة"}, {"id": 41, "cat": "gas", "name": "قارورة غاز", "ico": "🔥", "unit": "قارورة"}, {"id": 42, "cat": "gas", "name": "فحم طبيعي", "ico": "🪵", "unit": "كيس"}, {"id": 43, "cat": "gas", "name": "كبريت / ولاعات", "ico": "🔥", "unit": "علبة"}, {"id": 44, "cat": "other", "name": "مثلجات (ثلج)", "ico": "🧊", "unit": "كيس"}, {"id": 45, "cat": "other", "name": "قهوة تركية", "ico": "🇹🇷", "unit": "كغ"}, {"id": 46, "cat": "other", "name": "بهارات وحلبة", "ico": "🌶️", "unit": "كغ"}, {"id": 47, "cat": "other", "name": "منتج آخر (اذكره في الملاحظة)", "ico": "➕", "unit": "—"}];
+const DEFAULT_PRODUCTS = [{"id": 1, "cat": "coffee", "name": "قهوة مطحونة (محمصة)", "ico": "☕"}, {"id": 2, "cat": "coffee", "name": "حبوب قهوة عربية", "ico": "🫘"}, {"id": 3, "cat": "coffee", "name": "قهوة سريعة الذوبان", "ico": "⚡"}, {"id": 4, "cat": "coffee", "name": "إسبريسو (كبسولات)", "ico": "🎯"}, {"id": 5, "cat": "sugar", "name": "سكر أبيض", "ico": "🍚"}, {"id": 6, "cat": "sugar", "name": "سكر مكعبات", "ico": "🧊"}, {"id": 7, "cat": "sugar", "name": "عسل طبيعي", "ico": "🍯"}, {"id": 8, "cat": "soft", "name": "كوكاكولا", "ico": "🥤"}, {"id": 9, "cat": "soft", "name": "فانتا برتقال", "ico": "🍊"}, {"id": 10, "cat": "soft", "name": "سبرايت", "ico": "🍋"}, {"id": 11, "cat": "soft", "name": "مشروب طاقة", "ico": "⚡"}, {"id": 12, "cat": "soft", "name": "مياه غازية", "ico": "🫧"}, {"id": 13, "cat": "water", "name": "مياه معدنية صغيرة", "ico": "💧"}, {"id": 14, "cat": "water", "name": "مياه معدنية كبيرة", "ico": "🚰"}, {"id": 15, "cat": "water", "name": "عصير برتقال", "ico": "🍊"}, {"id": 16, "cat": "water", "name": "عصير ليمون", "ico": "🍋"}, {"id": 17, "cat": "water", "name": "عصير خوخ/مانجو", "ico": "🥭"}, {"id": 18, "cat": "tea", "name": "شاي أخضر", "ico": "🍃"}, {"id": 19, "cat": "tea", "name": "شاي أسود", "ico": "🫖"}, {"id": 20, "cat": "tea", "name": "نعناع مجفف", "ico": "🌿"}, {"id": 21, "cat": "tea", "name": "أعشاب متنوعة", "ico": "🍂"}, {"id": 22, "cat": "milk", "name": "حليب سائل", "ico": "🥛"}, {"id": 23, "cat": "milk", "name": "حليب بودرة", "ico": "🍼"}, {"id": 24, "cat": "milk", "name": "كريمة خفق", "ico": "🍰"}, {"id": 25, "cat": "choco", "name": "شوكولاتة ساخنة", "ico": "🍫"}, {"id": 26, "cat": "choco", "name": "كاكاو بودرة", "ico": "🟤"}, {"id": 27, "cat": "choco", "name": "صوص شوكولاتة", "ico": "🍯"}, {"id": 28, "cat": "dessert", "name": "بسكويت", "ico": "🍪"}, {"id": 29, "cat": "dessert", "name": "كرواصون", "ico": "🥐"}, {"id": 30, "cat": "dessert", "name": "مغاربة/كعك", "ico": "🥮"}, {"id": 31, "cat": "dessert", "name": "شيبس", "ico": "🍟"}, {"id": 32, "cat": "clean", "name": "مناديل ورقية", "ico": "🧻"}, {"id": 33, "cat": "clean", "name": "معقم أيدي", "ico": "🧴"}, {"id": 34, "cat": "clean", "name": "سائل جلي", "ico": "🫧"}, {"id": 35, "cat": "clean", "name": "معطر جو", "ico": "🌸"}, {"id": 36, "cat": "disposable", "name": "أكواب ورقية صغيرة", "ico": "🥤"}, {"id": 37, "cat": "disposable", "name": "أكواب ورقية كبيرة", "ico": "🥤"}, {"id": 38, "cat": "disposable", "name": "أغطية وأعواد", "ico": "🥢"}, {"id": 39, "cat": "disposable", "name": "أكياس تغليف", "ico": "🛍️"}, {"id": 40, "cat": "disposable", "name": "مناديل مائدة", "ico": "🍽️"}, {"id": 41, "cat": "gas", "name": "قارورة غاز", "ico": "🔥"}, {"id": 42, "cat": "gas", "name": "فحم طبيعي", "ico": "🪵"}, {"id": 43, "cat": "gas", "name": "كبريت / ولاعات", "ico": "🔥"}, {"id": 44, "cat": "other", "name": "مثلجات (ثلج)", "ico": "🧊"}, {"id": 45, "cat": "other", "name": "قهوة تركية", "ico": "🇹🇷"}, {"id": 46, "cat": "other", "name": "بهارات وحلبة", "ico": "🌶️"}, {"id": 47, "cat": "other", "name": "منتج آخر (اذكره في الملاحظة)", "ico": "➕"}];
 
 function loadData(){
   try{
@@ -416,14 +460,13 @@ function checkDomainState(){
   } else {
     landingEl.classList.add("hidden");
     document.getElementById("appTitle").textContent = `coffee HOUSE (${currentDomain})`;
-    selectedCat = null; // reset category to force recalculation for new domain
+    selectedCat = null;
     renderCats();
     renderProds();
     checkPendingMissingOnStartup();
   }
 }
 
-// Ensure event listener for domain cards is attached reliably and robustly
 document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".domain-card").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -483,44 +526,30 @@ function renderProds(filter=""){
   const list = PRODUCTS.filter(p => p.cat===selectedCat && p.name.toLowerCase().includes(filter.toLowerCase()) && (selectedSubgroup==="الكل" || (p.group||"").trim()===selectedSubgroup));
   if(!list.length){ prodEl.innerHTML = '<div class="empty">لا توجد منتجات في هذه الفئة 🔍</div>'; return; }
   list.forEach(p=>{
-    const q = cart[p.id] || 0;
+    const isSelected = !!cart[p.id];
     const d = document.createElement("div");
-    d.className = "prod" + (q>0 ? " selected":"");
+    d.className = "prod" + (isSelected ? " selected":"");
     d.innerHTML = `
+      <div class="prod-check">✔️</div>
       ${p.image ? `<img class="item-photo" src="${p.image}" alt="">` : `<div class="ico">${p.ico||"📦"}</div>`}
-      <div class="nm">${p.name}</div>
-      <div class="unit">${p.unit||""}</div>
-      <div class="qty">
-        <button class="qbtn qminus" data-id="${p.id}">−</button>
-        <span class="qval">${q||1}</span>
-        <button class="qbtn qplus" data-id="${p.id}">+</button>
-      </div>`;
-    d.addEventListener("click", e=>{
-      if(e.target.classList.contains("qbtn")) return;
-      cart[p.id] = 1; update();
+      <div class="nm">${p.name}</div>`;
+    d.addEventListener("click", ()=>{
+      if(cart[p.id]){
+        delete cart[p.id];
+      } else {
+        cart[p.id] = 1;
+      }
+      update();
     });
     prodEl.appendChild(d);
   });
-}
-
-prodEl.addEventListener("click", e=>{
-  const id = +e.target.dataset.id;
-  if(!id) return;
-  if(e.target.classList.contains("qplus")) changeQty(id, 1);
-  if(e.target.classList.contains("qminus")) changeQty(id, -1);
-});
-
-function changeQty(id, d){
-  cart[id] = (cart[id]||0) + d;
-  if(cart[id] <= 0) delete cart[id];
-  update();
 }
 
 function update(){
   renderProds(document.getElementById("search").value.trim());
   const n = Object.keys(cart).length;
   document.getElementById("count").textContent = n + " منتج";
-  document.getElementById("cartBadge").textContent = Object.values(cart).reduce((a,b)=>a+b,0);
+  document.getElementById("cartBadge").textContent = n;
   document.getElementById("sendBtn").disabled = n===0;
   renderCart();
 }
@@ -544,14 +573,14 @@ function buildMessage(){
   Object.keys(cart).forEach(id=>{
     const p = PRODUCTS.find(x=>x.id==id);
     if(!p) return;
-    (byCat[p.cat] = byCat[p.cat] || []).push({p, q: cart[id], id: p.id, name: p.name, unit: p.unit, ico: p.ico});
+    (byCat[p.cat] = byCat[p.cat] || []).push({p, id: p.id, name: p.name, ico: p.ico});
     total++;
   });
   CATEGORIES.forEach(c=>{
     if(!byCat[c.id]) return;
     msg += `${c.ico||"📦"} *${c.name}:*\n`;
-    byCat[c.id].forEach(({p,q})=>{
-      msg += `  • ${p.ico||"📦"} ${p.name} × ${q} (${p.unit||"وحدة"})\n`;
+    byCat[c.id].forEach(({p})=>{
+      msg += `  • ${p.ico||"📦"} ${p.name}\n`;
     });
     msg += "\n";
   });
@@ -569,12 +598,13 @@ function getCartOrderDetails(){
   Object.keys(cart).forEach(id=>{
     const p = PRODUCTS.find(x=>x.id==id);
     if(p){
-      items.push({ id: p.id, name: p.name, quantity: cart[id], unit: p.unit || "وحدة", ico: p.ico || "📦" });
+      items.push({ id: p.id, name: p.name, quantity: 1, unit: "", ico: p.ico || "📦", rawDate: new Date().toISOString() });
     }
   });
   return {
     id: 'ORD-' + Date.now(),
     timestamp: now,
+    rawDate: new Date().toISOString(),
     domain: currentDomain,
     worker: worker || 'غير محدد',
     note: note,
@@ -584,28 +614,31 @@ function getCartOrderDetails(){
 
 function savePendingOrder(order){
   try {
+    // النواقص تُحفظ محلياً على هذا الجهاز الخاص بالعامل فقط
     let pending = JSON.parse(localStorage.getItem("pending_purchases") || "[]");
     pending.push(order);
     localStorage.setItem("pending_purchases", JSON.stringify(pending));
+    
+    // التقارير تُرسل سحابياً إلى Firebase لكي تراها أنت من أي مكان
+    db.ref("historical_orders").push(order).catch(err => {
+      console.log("Firebase save error: ", err);
+    });
   } catch(e){}
 }
 
 function renderCart(){
   const box=document.getElementById("cartItems"); if(!box) return;
   box.innerHTML="";
-  const entries=Object.entries(cart).filter(([id,q])=>q>0);
+  const entries=Object.keys(cart);
   if(!entries.length){box.innerHTML='<div class="empty">السلة فارغة. اختر المنتجات أولاً.</div>';return;}
-  entries.forEach(([id,q])=>{
+  entries.forEach(id=>{
     const p=PRODUCTS.find(x=>String(x.id)===String(id)); if(!p) return;
     const row=document.createElement("div"); row.className="cart-row";
-    row.innerHTML=`<div class="cart-name">${p.image?`<img src="${p.image}" style="width:42px;height:42px;object-fit:cover;border-radius:8px;vertical-align:middle;margin-left:6px">`:``}<strong>${p.ico||"📦"} ${p.name}</strong><div style="color:var(--muted);font-size:.8rem">${p.unit||"وحدة"}</div></div><button class="cart-qty" data-act="minus">−</button><b>${q}</b><button class="cart-qty" data-act="plus">+</button><button class="cart-remove" data-act="remove">حذف</button>`;
-    row.querySelectorAll("button").forEach(btn=>btn.onclick=()=>{
-      const act=btn.dataset.act;
-      if(act==="remove") delete cart[id];
-      else if(act==="plus") cart[id]=(cart[id]||0)+1;
-      else changeQty(id,-1);
+    row.innerHTML=`<div class="cart-name">${p.image?`<img src="${p.image}" style="width:42px;height:42px;object-fit:cover;border-radius:8px;vertical-align:middle;margin-left:6px">`:``}<strong>${p.ico||"📦"} ${p.name}</strong></div><button class="cart-remove" data-act="remove">حذف</button>`;
+    row.querySelector("button").onclick=()=>{
+      delete cart[id];
       update();
-    });
+    };
     box.appendChild(row);
   });
 }
@@ -636,7 +669,7 @@ document.getElementById("sendBtn").onclick = ()=>{
   toast("✅ تم حفظ الطلب وإرساله بنجاح");
 };
 
-// Purchases & Missing tracking UI logic
+// Purchases & Missing tracking UI logic (Device Local)
 const purchasesOverlay = document.getElementById("purchasesOverlay");
 document.getElementById("purchasesNavBtn").onclick = () => {
   renderPurchasesList();
@@ -677,7 +710,7 @@ function renderPurchasesList(){
     order.items.forEach((item, itemIdx) => {
       html += `
         <div class="item-line">
-          <div>${item.ico||"📦"} <strong>${item.name}</strong> (${item.quantity} ${item.unit})</div>
+          <div>${item.ico||"📦"} <strong>${item.name}</strong></div>
           <div style="display:flex; gap:6px;">
             <button class="btn-yes" onclick="resolvePurchaseItem(${ordIdx}, ${itemIdx}, 'yes')">نعم</button>
             <button class="btn-missing" onclick="resolvePurchaseItem(${ordIdx}, ${itemIdx}, 'missing')">ناقص</button>
@@ -733,7 +766,7 @@ function checkPendingMissingOnStartup(){
   if(accumulatedMissingItems.length > 0){
     let previewHtml = "<ul>";
     accumulatedMissingItems.forEach(i => {
-      previewHtml += `<li style="margin-bottom:4px;">${i.ico||"📦"} ${i.name} (${i.quantity} ${i.unit})</li>`;
+      previewHtml += `<li style="margin-bottom:4px;">${i.ico||"📦"} ${i.name}</li>`;
     });
     previewHtml += "</ul>";
     document.getElementById("missingItemsPreview").innerHTML = previewHtml;
@@ -749,12 +782,138 @@ window.addMissingToCart = function(){
   accumulatedMissingItems.forEach(item => {
     const prod = PRODUCTS.find(p => p.name === item.name);
     if(prod){
-      cart[prod.id] = (cart[prod.id] || 0) + (parseInt(item.quantity) || 1);
+      cart[prod.id] = 1;
     }
   });
   update();
   closeMissingModal();
   toast("✨ تمت إضافة المنتجات الناقصة إلى السلة بنجاح");
+};
+
+// Reports Feature Logic (Fetching from Firebase Realtime Database)
+const reportsOverlay = document.getElementById("reportsOverlay");
+document.getElementById("openReportsBtn").onclick = () => {
+  fetchAndRenderReports();
+  reportsOverlay.classList.add("open");
+};
+document.getElementById("closeReports").onclick = () => reportsOverlay.classList.remove("open");
+reportsOverlay.addEventListener("click", e => { if(e.target === reportsOverlay) reportsOverlay.classList.remove("open"); });
+
+let cachedFirebaseOrders = [];
+
+function fetchAndRenderReports(dateFrom = "", dateTo = ""){
+  const container = document.getElementById("reportsContainer");
+  container.innerHTML = '<div class="empty">جاري جلب التقارير من السحابة... ⏳</div>';
+
+  db.ref("historical_orders").once("value", snapshot => {
+    const data = snapshot.val() || {};
+    cachedFirebaseOrders = Object.values(data);
+    renderReportsData(dateFrom, dateTo);
+  }, error => {
+    console.error(error);
+    container.innerHTML = '<div class="empty">⚠️ تعذر الاتصال بقاعدة البيانات السحابية</div>';
+  });
+}
+
+function renderReportsData(dateFrom = "", dateTo = ""){
+  const container = document.getElementById("reportsContainer");
+  let filtered = cachedFirebaseOrders;
+  
+  if(dateFrom){
+    const dFrom = new Date(dateFrom);
+    dFrom.setHours(0,0,0,0);
+    filtered = filtered.filter(o => {
+      const oDate = new Date(o.rawDate || o.timestamp);
+      return oDate >= dFrom;
+    });
+  }
+  if(dateTo){
+    const dTo = new Date(dateTo);
+    dTo.setHours(23,59,59,999);
+    filtered = filtered.filter(o => {
+      const oDate = new Date(o.rawDate || o.timestamp);
+      return oDate <= dTo;
+    });
+  }
+
+  const counts = {};
+  filtered.forEach(order => {
+    order.items.forEach(item => {
+      if(!counts[item.name]){
+        counts[item.name] = { name: item.name, ico: item.ico || "📦", count: 0 };
+      }
+      counts[item.name].count += 1;
+    });
+  });
+
+  const sortedProducts = Object.values(counts).sort((a,b) => b.count - a.count);
+
+  if(!sortedProducts.length){
+    container.innerHTML = '<div class="empty">لا توجد منتجات مطلوبة في النطاق الزمني المختار 🔍</div>';
+    return;
+  }
+
+  let html = "";
+  sortedProducts.forEach(p => {
+    html += `
+      <div class="report-item">
+        <div>${p.ico} <strong>${p.name}</strong></div>
+        <div class="report-count">${p.count} مرات طلب</div>
+      </div>
+    `;
+  });
+  container.innerHTML = html;
+}
+
+document.getElementById("filterReportsBtn").onclick = () => {
+  const dFrom = document.getElementById("reportDateFrom").value;
+  const dTo = document.getElementById("reportDateTo").value;
+  renderReportsData(dFrom, dTo);
+};
+
+document.getElementById("resetReportsBtn").onclick = () => {
+  document.getElementById("reportDateFrom").value = "";
+  document.getElementById("reportDateTo").value = "";
+  renderReportsData();
+};
+
+document.getElementById("clearRangeReportsBtn").onclick = () => {
+  const dFromStr = document.getElementById("reportDateFrom").value;
+  const dToStr = document.getElementById("reportDateTo").value;
+  
+  if(!dFromStr && !dToStr){
+    toast("⚠️ حدد تاريخ البداية والنهاية أولاً لمسح فترة محددة");
+    return;
+  }
+
+  if(!confirm("⚠️ هل أنت متأكد من مسح تقارير الطلبات الواقعة ضمن النطاق الزمني المحدد من السحابة؟")) return;
+
+  const dFrom = dFromStr ? new Date(dFromStr) : null;
+  if(dFrom) dFrom.setHours(0,0,0,0);
+  
+  const dTo = dToStr ? new Date(dToStr) : null;
+  if(dTo) dTo.setHours(23,59,59,999);
+
+  db.ref("historical_orders").once("value", snapshot => {
+    const val = snapshot.val() || {};
+    let updates = {};
+    Object.keys(val).forEach(key => {
+      const o = val[key];
+      const oDate = new Date(o.rawDate || o.timestamp);
+      let matchFrom = dFrom ? oDate >= dFrom : true;
+      let matchTo = dTo ? oDate <= dTo : true;
+      if(matchFrom && matchTo){
+        updates[key] = null; // حذف من Firebase
+      }
+    });
+
+    db.ref("historical_orders").update(updates).then(() => {
+      toast("🗑️ تم مسح تقارير الفترة المحددة من السحابة بنجاح");
+      fetchAndRenderReports(dFromStr, dToStr);
+    }).catch(err => {
+      toast("⚠️ حدث خطأ أثناء الحذف");
+    });
+  });
 };
 
 function toast(t){
@@ -887,13 +1046,11 @@ document.getElementById("addProdBtn").onclick = async ()=>{
     cat: catId,
     name,
     ico: document.getElementById("newProdIco").value.trim() || "📦",
-    unit: document.getElementById("newProdUnit").value.trim() || "وحدة",
     group: document.getElementById("newProdGroup").value.trim(),
     image
   });
   saveProds(); renderProds(); renderManage();
   document.getElementById("newProdName").value = ""; 
-  document.getElementById("newProdUnit").value = ""; 
   document.getElementById("newProdIco").value = ""; 
   document.getElementById("newProdGroup").value = "";
   document.getElementById("newProdImage").value = "";
@@ -938,7 +1095,7 @@ function renderManage(){
   PRODUCTS.filter(p=>p.cat===catId).forEach(p=>{
     const d = document.createElement("div");
     d.className = "manage-item";
-    d.innerHTML = `${p.image ? `<img class="manage-photo" src="${p.image}" alt="">` : ""}<span>${p.ico||"📦"} ${p.name} <small style="color:var(--muted)">(${p.unit||"وحدة"})</small></span>`;
+    d.innerHTML = `${p.image ? `<img class="manage-photo" src="${p.image}" alt="">` : ""}<span>${p.ico||"📦"} ${p.name}</span>`;
 
     const imgBtn = document.createElement("button");
     imgBtn.className = "edit"; imgBtn.textContent = "🖼️";
@@ -958,9 +1115,7 @@ function renderManage(){
       const n = prompt("الاسم الجديد:", p.name);
       if(n === null) return;
       if(!n.trim()) return;
-      const u = prompt("الوحدة:", p.unit || "");
       p.name = n.trim();
-      if(u !== null) p.unit = u.trim() || "وحدة";
       saveProds(); renderProds(); renderManage();
       toast("✅ تم التعديل");
     };
