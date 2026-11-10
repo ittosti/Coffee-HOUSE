@@ -8,10 +8,6 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="apple-touch-icon" href="icon-192.png">
 
-<!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-
 <style>
   :root{
     --bg:#0f172a; --card:#1e293b; --card2:#253449; --accent:#f59e0b;
@@ -408,7 +404,6 @@
 <div id="toast"></div>
 
 <script>
-// إعدادات Firebase الخاصة بك
 const FIREBASE_URL = "https://coffe-house-marche-default-rtdb.firebaseio.com";
 
 const ADMIN_PIN = "23071990";
@@ -606,15 +601,12 @@ function getCartOrderDetails(){
   };
 }
 
-// دالة الحفظ السحابي عبر Fetch المباشر
 async function savePendingOrder(order){
   try {
-    // 1. النواقص تُحفظ محلياً على هذا الجهاز الخاص بالعامل فقط
     let pending = JSON.parse(localStorage.getItem("pending_purchases") || "[]");
     pending.push(order);
     localStorage.setItem("pending_purchases", JSON.stringify(pending));
     
-    // 2. إرسال الطلب إلى Firebase سحابياً
     await fetch(`${FIREBASE_URL}/historical_orders.json`, {
       method: 'POST',
       body: JSON.stringify(order)
@@ -667,7 +659,6 @@ document.getElementById("sendBtn").onclick = async ()=>{
   toast("✅ تم حفظ الطلب وإرساله بنجاح");
 };
 
-// Purchases & Missing tracking UI logic (Device Local)
 const purchasesOverlay = document.getElementById("purchasesOverlay");
 document.getElementById("purchasesNavBtn").onclick = () => {
   renderPurchasesList();
@@ -788,7 +779,6 @@ window.addMissingToCart = function(){
   toast("✨ تمت إضافة المنتجات الناقصة إلى السلة بنجاح");
 };
 
-// Reports Feature Logic (Fetching via Direct REST API)
 const reportsOverlay = document.getElementById("reportsOverlay");
 document.getElementById("openReportsBtn").onclick = () => {
   fetchAndRenderReports();
@@ -805,7 +795,15 @@ async function fetchAndRenderReports(dateFrom = "", dateTo = ""){
 
   try {
     const res = await fetch(`${FIREBASE_URL}/historical_orders.json`);
-    const data = await res.json() || {};
+    const data = await res.json();
+    
+    // معالجة حالة إذا كانت السحابة فارغة (null)
+    if(!data) {
+      cachedFirebaseOrders = [];
+      container.innerHTML = '<div class="empty">📭 قاعدة البيانات فارغة. لم يتم إرسال أي طلبات بعد.</div>';
+      return;
+    }
+
     cachedFirebaseOrders = Object.values(data);
     renderReportsData(dateFrom, dateTo);
   } catch(e){
@@ -850,7 +848,7 @@ function renderReportsData(dateFrom = "", dateTo = ""){
   const sortedProducts = Object.values(counts).sort((a,b) => b.count - a.count);
 
   if(!sortedProducts.length){
-    container.innerHTML = '<div class="empty">لا توجد منتجات مطلوبة في النطاق الزمني المختار 🔍</div>';
+    container.innerHTML = '<div class="empty">لا توجد منتجات مطابقة في النطاق الزمني المختار 🔍</div>';
     return;
   }
 
@@ -905,7 +903,7 @@ document.getElementById("clearRangeReportsBtn").onclick = async () => {
       let matchFrom = dFrom ? oDate >= dFrom : true;
       let matchTo = dTo ? oDate <= dTo : true;
       if(matchFrom && matchTo){
-        updates[key] = null; // حذف السجل من Firebase
+        updates[key] = null;
       }
     });
 
